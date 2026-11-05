@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>マキシマム💩クリッカー</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1p:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'M PLUS Rounded 1p', sans-serif;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            background-color: #1a1512;
+            color: #f4e8d8;
+        }
+        .bounce-anim {
+            animation: bounce 0.12s ease-in-out;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(0.9); }
+        }
+        .float-text {
+            position: absolute;
+            animation: floatUp 0.7s ease-out forwards;
+            pointer-events: none;
+            font-weight: 900;
+            z-index: 100;
+        }
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-70px) scale(1.3); }
+        }
+        .fever-mode {
+            animation: feverBg 1.5s infinite alternate;
+        }
+        @keyframes feverBg {
+            0% { background-color: #2b152b; }
+            100% { background-color: #4a1535; }
+        }
+        .bg-sprite {
+            position: absolute;
+            font-size: 1.4rem;
+            opacity: 0.25;
+            pointer-events: none;
+            transition: transform 0.5s;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #5c4033;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between overflow-x-hidden relative">
+
+    <!-- 背景スプライトレイヤー -->
+    <div id="bg-canvas" class="absolute inset-0 pointer-events-none overflow-hidden z-0"></div>
+
+    <!-- ヘッダーエリア -->
+    <header class="w-full max-w-md bg-stone-900/90 backdrop-blur border-b-2 border-amber-900/60 p-4 shadow-xl rounded-b-3xl text-center sticky top-0 z-35">
+        <div class="flex justify-between items-center mb-1">
+            <div class="flex items-center space-x-2">
+                <h1 class="text-sm font-black tracking-wider text-amber-300">マキシマム💩クリッカー</h1>
+                <button onclick="openRingsModal()" class="bg-yellow-900/60 hover:bg-yellow-800 text-yellow-300 border border-yellow-700 text-[10px] font-bold px-2 py-0.5 rounded-xl transition-all shadow-sm flex items-center space-x-1">
+                    <span>💍</span><span id="header-ring-count">0/6</span>
+                </button>
+            </div>
+            <button onclick="openResetModal()" class="bg-stone-800 hover:bg-red-950/60 text-stone-400 hover:text-red-400 border border-stone-700 text-[10px] font-bold px-2 py-1 rounded-xl transition-all shadow-sm">
+                ⚙️ リセット
+            </button>
+        </div>
+        <!-- 上部ステータス枠：高さh-16固定 -->
+        <div class="mt-2 flex justify-around items-center bg-stone-950/70 px-3 py-2 rounded-2xl border border-stone-800 h-16">
+            <div class="w-1/2 pr-2 text-left">
+                <p class="text-[10px] text-amber-400 font-bold">所持うんち</p>
+                <p id="score-display" class="text-xl md:text-2xl font-black text-amber-200 truncate">0 💩</p>
+            </div>
+            <div class="w-1/2 border-l border-stone-800 pl-3 text-left">
+                <p class="text-[10px] text-amber-400 font-bold">秒間生産 / 永続倍率</p>
+                <p id="gps-display" class="text-xs font-bold text-stone-300 truncate leading-tight">0 /秒 (x1.0000)</p>
+            </div>
+        </div>
+        <div id="fever-bar-container" class="w-full bg-stone-950 h-2 rounded-full mt-2 overflow-hidden hidden border border-pink-900/50">
+            <div id="fever-bar" class="bg-gradient-to-r from-yellow-400 to-pink-500 h-full w-full transition-all duration-100"></div>
+        </div>
+    </header>
+
+    <!-- メインビジュアル＆クリックエリア -->
+    <main class="w-full max-w-md flex-1 flex flex-col items-center justify-center p-4 relative z-20">
+        
+        <!-- フィーバー用オニオオハシ -->
+        <div id="fever-bird" class="absolute top-2 bg-pink-600 text-white font-black px-4 py-1.5 rounded-full text-xs shadow-xl animate-bounce hidden cursor-pointer border-2 border-yellow-300 flex items-center space-x-1 z-50">
+            <span>🦜</span><span id="fever-bird-text">オニオオハシ出現！タップでフィーバー！</span>
+        </div>
+
+        <!-- キャラクターのセリフエリア：デフォルト2行分高さh-16固定 -->
+        <div class="w-full bg-stone-900/80 backdrop-blur border-2 border-amber-800/50 rounded-2xl px-3 py-2 mb-3 shadow-md flex items-center space-x-3 h-16 overflow-hidden">
+            <div id="dialogue-icon" class="text-2xl shrink-0">🦍</div>
+            <p id="dialogue-text" class="text-xs font-bold text-amber-100 line-clamp-2 w-full leading-relaxed">からばいよ: 工場が稼働し始めたウホ！モリモリ生産するウホ！</p>
+        </div>
+
+        <!-- 巨大うんちクリックボタン -->
+        <div class="relative flex items-center justify-center my-4">
+            <div class="absolute w-48 h-48 bg-amber-500/10 rounded-full animate-ping pointer-events-none"></div>
+            <button id="click-btn" class="w-44 h-44 bg-gradient-to-br from-amber-700 via-amber-900 to-stone-950 rounded-full shadow-2xl flex flex-col items-center justify-center border-4 border-amber-600/80 relative overflow-hidden group active:scale-95 transition-transform">
+                <span class="text-6xl select-none filter drop-shadow-md group-hover:scale-105 transition-transform">💩</span>
+                <span class="text-[10px] font-black text-amber-300/80 mt-1 tracking-widest">タップして生産</span>
+            </button>
+        </div>
+
+        <!-- 黄金転生バー -->
+        <div class="w-full bg-stone-900/90 border border-amber-900/40 rounded-2xl p-2.5 flex flex-col space-y-1.5 shadow-md mb-2">
+            <div class="flex justify-between items-center text-xs space-x-2">
+                <span id="cumulative-display" class="font-bold text-amber-200 truncate shrink">累計: 0 💩</span>
+                <span id="golden-owned-display" class="font-bold text-yellow-400 bg-yellow-950/60 px-2 py-0.5 rounded-lg border border-yellow-800/50 text-[11px] shrink-0">✨所持: 0個 (+0.0%)</span>
+            </div>
+            <div class="flex items-center justify-between border-t border-stone-800 pt-1.5 space-x-2">
+                <div class="text-[10px] text-stone-400 flex-1 min-w-0 pr-1">
+                    <p class="font-bold text-stone-300">黄金転生</p>
+                    <p id="next-goal-text" class="text-amber-300 font-bold truncate leading-tight">次まであと: 100兆 💩</p>
+                </div>
+                <button id="prestige-btn" onclick="openPrestigeModal()" class="bg-gradient-to-r from-amber-500 to-yellow-600 text-stone-950 font-black px-2.5 py-1.5 rounded-xl text-[11px] shadow hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-all shrink-0 max-w-[50%] truncate" disabled>
+                    黄金転生 (条件未達)
+                </button>
+            </div>
+        </div>
+
+        <!-- 神格転生バー -->
+        <div class="w-full bg-stone-900/90 border border-purple-900/50 rounded-2xl p-2.5 flex flex-col space-y-1.5 shadow-md">
+            <div class="flex justify-between items-center text-xs space-x-2">
+                <span id="divine-owned-display" class="font-bold text-purple-300 bg-purple-950/60 px-2 py-0.5 rounded-lg border border-purple-800/50 text-[11px] truncate">🌌神格: 0個 (全生産 x1.0)</span>
+            </div>
+            <div class="flex items-center justify-between border-t border-stone-800 pt-1.5 space-x-2">
+                <div class="text-[10px] text-stone-400 flex-1 min-w-0 pr-1">
+                    <p class="font-bold text-stone-300">神格転生</p>
+                    <p id="divine-goal-text" class="text-purple-300 font-bold truncate leading-tight">次まであと黄金 100個</p>
+                </div>
+                <button id="divine-btn" onclick="openDivineModal()" class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black px-2.5 py-1.5 rounded-xl text-[11px] shadow hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-all shrink-0 max-w-[50%] truncate" disabled>
+                    神格購入 (要:100個)
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- 7カテゴリーショップタブ＆パネル -->
+    <nav class="w-full max-w-md bg-stone-900 border-t-2 border-stone-800 rounded-t-3xl shadow-2xl z-30">
+        <div class="flex overflow-x-auto p-1.5 border-b border-stone-800 text-[10px] font-bold text-stone-400 space-x-1 custom-scrollbar">
+            <button onclick="switchTab(0)" id="tab-0" class="flex-shrink-0 px-3 py-2 text-center rounded-xl bg-amber-600 text-white transition-all shadow">からばいよ</button>
+            <button onclick="switchTab(1)" id="tab-1" class="flex-shrink-0 px-3 py-2 text-center rounded-xl transition-all">ニハシ</button>
+            <button onclick="switchTab(2)" id="tab-2" class="flex-shrink-0 px-3 py-2 text-center rounded-xl transition-all">ロドリゴ</button>
+            <button onclick="switchTab(3)" id="tab-3" class="flex-shrink-0 px-3 py-2 text-center rounded-xl transition-all">ザシアン</button>
+            <button onclick="switchTab(4)" id="tab-4" class="flex-shrink-0 px-3 py-2 text-center rounded-xl transition-all">🧚プルプルマン</button>
+            <button onclick="switchTab(5)" id="tab-5" class="flex-shrink-0 px-3 py-2 text-center rounded-xl transition-all">🐳ピピンゴマン</button>
+            <button onclick="switchTab(6)" id="tab-6" class="flex-shrink-0 px-3 py-2 text-center rounded-xl transition-all">設備</button>
+        </div>
+
+        <!-- MAX購入ボタンバー -->
+        <div class="px-3 pt-2 pb-1 bg-stone-950/40 flex justify-between items-center border-b border-stone-800/60">
+            <span class="text-[10px] font-bold text-amber-400/80">解放済みの段階を限界まで一括購入</span>
+            <button onclick="buyMaxCurrentTab()" class="bg-amber-700/80 hover:bg-amber-600 text-white text-[10px] font-black px-3 py-1 rounded-lg border border-amber-500/50 shadow transition-all active:scale-95 flex items-center space-x-1">
+                <span>⚡ MAX購入</span>
+            </button>
+        </div>
+
+        <div id="shop-container" class="p-3 h-48 overflow-y-auto space-y-2 bg-stone-950/60 custom-scrollbar"></div>
+    </nav>
+
+    <!-- メッセージモーダル -->
+    <div id="msg-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-stone-900 p-6 rounded-3xl max-w-xs w-full text-center shadow-2xl border-2 border-amber-600">
+            <h3 id="modal-title" class="text-base font-black text-amber-300 mb-2">お知らせ</h3>
+            <div id="modal-text" class="text-xs text-stone-300 mb-4 leading-relaxed">ここにメッセージが入ります</div>
+            <div id="modal-buttons" class="flex space-x-2">
+                <button onclick="closeModal()" class="flex-1 bg-amber-600 text-white font-bold py-2 rounded-xl shadow hover:bg-amber-700 transition-colors text-xs">了解</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ウホホゴリリング図鑑モーダル -->
+    <div id="rings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-stone-900 p-5 rounded-3xl max-w-sm w-full text-center shadow-2xl border-2 border-yellow-600 flex flex-col max-h-[80vh]">
+            <h3 class="text-base font-black text-yellow-300 mb-1">💍 ウホホゴリリング図鑑</h3>
+            <p class="text-[10px] text-stone-400 mb-3">累計1溝💩からスタートし、1兆倍(10¹²倍)毎に到達報酬として獲得！</p>
+            <div id="rings-list-container" class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar text-left mb-4"></div>
+            <button onclick="closeRingsModal()" class="w-full bg-yellow-600 hover:bg-yellow-700 text-stone-950 font-black py-2 rounded-xl text-xs shadow">閉じる</button>
+        </div>
+    </div>
+
+    <script>
+        let gameState = {
+            score: 0,
+            cumulative: 0,
+            goldenReincarnations: 0,
+            divineReincarnations: 0,
+            manualPower: 1,
+            autoPoopSec: 0,
+            critRate: 0.05,
+            critMulti: 3.0,
+            autoTapCount: 0,
+            synergyBonus: 1.0,
+            feverActive: false,
+            feverTimer: 0,
+            currentTab: 0,
+            rings: [],
+            levels: {
+                gorilla: Array(60).fill(0),
+                toucan: Array(60).fill(0),
+                skunk: Array(60).fill(0),
+                dog: Array(60).fill(0),
+                pulrupuru: Array(60).fill(0),
+                pipingoman: Array(60).fill(0),
+                facility: Array(60).fill(0)
+            }
+        };
+
+        const ringDefinitions = [
+            { id: 'ring_gorilla', name: 'ウホ王の統べる黄金の指輪', desc: '全生産効率が +50% される', icon: '💍', type: 'boost', val: 0.5, char: 'からばいよ' },
+            { id: 'ring_toucan', name: '全知オオハシの眼光の指輪', desc: 'クリティカル倍率が +200% される', icon: '💍', type: 'critMulti', val: 2.0, char: 'ニハシ' },
+            { id: 'ring_skunk', name: '悪臭放つ臭気王の指輪', desc: '自動タップが毎秒 +10回 増加する', icon: '💍', type: 'autoTap', val: 10, char: 'ロドリゴ' },
+            { id: 'ring_dog', name: '大食漢犬神の貪欲な指輪', desc: 'タップ威力が +500% される', icon: '💍', type: 'tapPower', val: 5.0, char: 'ザシアン' },
+            { id: 'ring_pulrupuru', name: 'メレメレレスラーの神髄の指輪', desc: 'クリティカル率が +15% 上昇する', icon: '💍', type: 'critRate', val: 0.15, char: 'プルプルマン' },
+            { id: 'ring_pipingoman', name: '原始の深海王のプリミティブリング', desc: 'フィーバー時間が2倍になり全生産が2倍になる', icon: '💍', type: 'fever', val: 2.0, char: 'ピピンゴマン' }
+        ];
+
+        function generate60Items(baseList, type) {
+            let res = [...baseList];
+            for (let i = 30; i < 60; i++) {
+                let orig = baseList[i % 30];
+                let prefix = i < 40 ? "真・" : (i < 50 ? "裏・" : "極・");
+                let stageOffset = i - 29;
+                let costExp = Math.pow(10, stageOffset * 3.5);
+                let item = {
+                    name: prefix + orig.name,
+                    cost: orig.cost * 1e16 * costExp,
+                    desc: orig.desc
+                };
+
+                if (type === 'cps') {
+                    item.cps = orig.cps * 1e15 * Math.pow(50, stageOffset);
+                    item.desc = `毎秒 +${formatNum(item.cps)} 💩生産`;
+                } else if (type === 'crit') {
+                    item.critAdd = orig.critAdd * 0.2;
+                    item.multAdd = orig.multAdd * 120 * stageOffset;
+                    item.desc = `クリティカル倍率が +${item.multAdd.toFixed(1)} 強化`;
+                } else if (type === 'autotap') {
+                    item.autoTapAdd = orig.autoTapAdd + 25 * stageOffset;
+                    item.desc = `自動タップが毎秒 +${item.autoTapAdd} 回増加`;
+                } else if (type === 'dog') {
+                    item.tapAdd = orig.tapAdd * 500000 * stageOffset;
+                    item.synAdd = orig.synAdd * 20 * stageOffset;
+                    item.desc = `タップ威力とシナジー効率が絶大増加`;
+                } else if (type === 'pulrupuru') {
+                    item.critPowerAdd = orig.critPowerAdd * 50 * stageOffset;
+                    item.autoCritAdd = orig.autoCritAdd * 2.0;
+                    item.desc = `ニハシ倍率と自動タップクリティカルを猛烈強化`;
+                } else if (type === 'pipingoman') {
+                    item.feverMultAdd = orig.feverMultAdd * 1.5 * stageOffset;
+                    item.allTotalAdd = orig.allTotalAdd * 2.0 * stageOffset;
+                    item.desc = `フィーバー倍率と全生産底上げを強化`;
+                } else if (type === 'facility') {
+                    item.allBoost = orig.allBoost * 20 * stageOffset;
+                    item.desc = `全生産効率が +${(item.allBoost * 100).toFixed(1)}% 底上げ`;
+                }
+                res.push(item);
+            }
+            return res;
+        }
+
+        const baseShop = [
+            generate60Items([
+                {name: "大地の鼓動", cost: 45, cps: 8, desc: "毎秒 +8 💩生産"},
+                {name: "ジャングル大噴火", cost: 405, cps: 40, desc: "毎秒 +40 💩生産"},
+                {name: "覇王の腸内細菌", cost: 3420, cps: 160, desc: "毎秒 +160 💩生産"},
+                {name: "王者の排泄領域", cost: 19800, cps: 640, desc: "毎秒 +640 💩生産"},
+                {name: "暴食のゴリラ豪腕", cost: 108000, cps: 2400, desc: "毎秒 +2400 💩生産"},
+                {name: "バナナ発酵タンク", cost: 585000, cps: 9600, desc: "毎秒 +9600 💩生産"},
+                {name: "密林の消化メガプラント", cost: 3150000, cps: 40000, desc: "毎秒 +40000 💩生産"},
+                {name: "古代ゴリラ化石発掘", cost: 16200000, cps: 160000, desc: "毎秒 +16万 💩生産"},
+                {name: "マウンテン排泄ロード", cost: 85500000, cps: 640000, desc: "毎秒 +64万 💩生産"},
+                {name: "絶対王政の便座", cost: 450000000, cps: 2800000, desc: "毎秒 +280万 💩生産"},
+                {name: "次元歪曲ジャングル", cost: 2520000000, cps: 12000000, desc: "毎秒 +1200万 💩生産"},
+                {name: "宇宙樹の肥料工場", cost: 13500000000, cps: 56000000, desc: "毎秒 +5600万 💩生産"},
+                {name: "銀河系エントロピー", cost: 72000000000, cps: 240000000, desc: "毎秒 +2.4億 💩生産"},
+                {name: "超新星爆発うんち", cost: 405000000000, cps: 1200000000, desc: "毎秒 +12億 💩生産"},
+                {name: "神域ゴリラファクトリー", cost: 2250000000000, cps: 5600000000, desc: "毎秒 +56億 💩生産"},
+                {name: "プライマル・ジャングル", cost: 12600000000000, cps: 25600000000, desc: "毎秒 +256億 💩生産"},
+                {name: "太古の王者ロード", cost: 67500000000000, cps: 120000000000, desc: "毎秒 +1200億 💩生産"},
+                {name: "ゴリラ神の降臨地", cost: 360000000000000, cps: 560000000000, desc: "毎秒 +5600億 💩生産"},
+                {name: "究極ウホウホタワー", cost: 1980000000000000, cps: 2560000000000, desc: "毎秒 +2.5兆 💩生産"},
+                {name: "バナナ銀河連邦", cost: 10800000000000000, cps: 12000000000000, desc: "毎秒 +12兆 💩生産"},
+                {name: "永遠の霊長類宮殿", cost: 58500000000000000, cps: 56000000000000, desc: "毎秒 +56兆 💩生産"},
+                {name: "マウンテン・コア", cost: 315000000000000000, cps: 256000000000352, desc: "毎秒 +256兆 💩生産"},
+                {name: "超ウホ次元ゲート", cost: 1710000000000000000, cps: 1200000000000000, desc: "毎秒 +1200兆 💩生産"},
+                {name: "絶対零度バナナ", cost: 9000000000000000000, cps: 5600000000000000, desc: "毎秒 +5600兆 💩生産"},
+                {name: "キングコングの棺", cost: 49500000000000000000, cps: 25600000000000000, desc: "毎秒 +1.5京 💩生産"},
+                {name: "無限ジャングル回廊", cost: 270000000000000000000, cps: 120000000000000000, desc: "毎秒 +12京 💩生産"},
+                {name: "神聖ウホ神殿", cost: 1440000000000000000000, cps: 560000000000000000, desc: "毎秒 +56京 💩生産"},
+                {name: "天界ゴリラハイウェイ", cost: 8100000000000000000000, cps: 2560000000000000000, desc: "毎秒 +2.5垓 💩生産"},
+                {name: "全能ウホの座", cost: 45000000000000000000000, cps: 12000000000000000000, desc: "毎秒 +12垓 💩生産"},
+                {name: "ウホ・オメガ・ジ・エンド", cost: 252000000000000000000000, cps: 56000000000000000000, desc: "毎秒 +56垓 💩生産"}
+            ], 'cps'),
+
+            generate60Items([
+                {name: "ワカルの真髄", cost: 80, critAdd: 0.02, multAdd: 0.3, desc: "クリティカル率と倍率が上昇する"},
+                {name: "フカメル深層思考", cost: 600, critAdd: 0.02, multAdd: 0.4, desc: "クリティカル性能が強化される"},
+                {name: "黄金クチバシの閃き", cost: 3500, critAdd: 0.03, multAdd: 0.5, desc: "クリティカル性能が強化される"},
+                {name: "全知全能のワカル", cost: 18000, critAdd: 0.03, multAdd: 0.6, desc: "クリティカル性能が強化される"},
+                {name: "電脳オオハシの眼", cost: 90000, critAdd: 0.04, multAdd: 0.8, desc: "クリティカル性能が強化される"},
+                {name: "鋭利な思考回路", cost: 450000, critAdd: 0.04, multAdd: 1.0, desc: "クリティカル性能が強化される"},
+                {name: "神託のオニオオハシ", cost: 2200000, critAdd: 0.05, multAdd: 1.2, desc: "クリティカル性能が強化される"},
+                {name: "究極ワカルビーム", cost: 11000000, critAdd: 0.05, multAdd: 1.5, desc: "クリティカル性能が強化される"},
+                {name: "哲学のクチバシ", cost: 55000000, critAdd: 0.06, multAdd: 2.0, desc: "クリティカル性能が強化される"},
+                {name: "宇宙理の解明", cost: 280000000, critAdd: 0.07, multAdd: 2.5, desc: "クリティカル性能が強化される"},
+                {name: "時空を超えるオオハシ", cost: 1400000000, critAdd: 0.08, multAdd: 3.0, desc: "クリティカル性能が強化される"},
+                {name: "無限ワカルフィールド", cost: 7000000000, critAdd: 0.09, multAdd: 4.0, desc: "クリティカル性能が強化される"},
+                {name: "神々のクチバシ", cost: 35000000000, critAdd: 0.10, multAdd: 5.0, desc: "クリティカル性能が強化される"},
+                {name: "全次元ワカル光線", cost: 180000000000, critAdd: 0.12, multAdd: 7.0, desc: "クリティカル性能が強化される"},
+                {name: "オニオオハシ神格化", cost: 900000000000, critAdd: 0.15, multAdd: 10.0, desc: "クリティカル性能が強化される"},
+                {name: "超ワカル・アイ", cost: 4500000000000, critAdd: 0.18, multAdd: 14.0, desc: "クリティカル性能が強化される"},
+                {name: "虚空のクチバシ", cost: 22000000000002, critAdd: 0.20, multAdd: 18.0, desc: "クリティカル性能が強化される"},
+                {name: "マルチバースワカル", cost: 110000000000000, critAdd: 0.23, multAdd: 23.0, desc: "クリティカル性能が強化される"},
+                {name: "オメガ・オオハシ", cost: 550000000000000, critAdd: 0.25, multAdd: 30.0, desc: "クリティカル性能が強化される"},
+                {name: "真・全知全能ワカル", cost: 2800000000000000, critAdd: 0.28, multAdd: 38.0, desc: "クリティカル性能が強化される"},
+                {name: "アカシックレコード鳥", cost: 14000000000000000, critAdd: 0.30, multAdd: 48.0, desc: "クリティカル性能が強化される"},
+                {name: "神聖クチバシ光臨", cost: 70000000000000000, critAdd: 0.33, multAdd: 60.0, desc: "クリティカル性能が強化される"},
+                {name: "超新星ワカルノヴァ", cost: 350000000000000000, critAdd: 0.35, multAdd: 75.0, desc: "クリティカル性能が強化される"},
+                {name: "無量大数ワカル", cost: 1800000000000000000, critAdd: 0.38, multAdd: 95.0, desc: "クリティカル性能が強化される"},
+                {name: "天界オニオオハシ", cost: 9000000000000000000, critAdd: 0.40, multAdd: 120.0, desc: "クリティカル性能が強化される"},
+                {name: "絶対認識のクチバシ", cost: 45000000000000000000, critAdd: 0.43, multAdd: 150.0, desc: "クリティカル性能が強化される"},
+                {name: "エントロピー・ワカル", cost: 220000000000000000000, critAdd: 0.45, multAdd: 190.0, desc: "クリティカル性能が強化される"},
+                {name: "次元断絶オオハシ", cost: 1100000000000000000000, critAdd: 0.48, multAdd: 240.0, desc: "クリティカル性能が強化される"},
+                {name: "宇宙創世ワカル光線", cost: 5500000000000000000000, critAdd: 0.50, multAdd: 300.0, desc: "クリティカル性能が強化される"},
+                {name: "ワカル・オメガ・ジ・エンド", cost: 28000000000000000000000, critAdd: 0.60, multAdd: 400.0, desc: "クリティカル性能が究極に強化される"}
+            ], 'crit'),
+
+            generate60Items([
+                {name: "屁っぴり初陣", cost: 100, autoTapAdd: 1, desc: "自動タップが毎秒 +1 回増加"},
+                {name: "音速のすかしっ屁", cost: 750, autoTapAdd: 1, desc: "自動タップが毎秒 +1 回増加"},
+                {name: "不快感MAXガスの嵐", cost: 4500, autoTapAdd: 1, desc: "自動タップが毎秒 +1 回増加"},
+                {name: "地球を包む屁のベール", cost: 25000, autoTapAdd: 1, desc: "自動タップが毎秒 +1 回増加"},
+                {name: "バイオハザード尻尾", cost: 130000, autoTapAdd: 1, desc: "自動タップが毎秒 +1 回増加"},
+                {name: "悪臭のオーラドーム", cost: 650000, autoTapAdd: 1, desc: "自動タップが毎秒 +1 回増加"},
+                {name: "完全防毒マスク必須", cost: 3200000, autoTapAdd: 2, desc: "自動タップが毎秒 +2 回増加"},
+                {name: "大陸制圧オナネード", cost: 16000000, autoTapAdd: 2, desc: "自動タップが毎秒 +2 回増加"},
+                {name: "銀河系悪臭パルス", cost: 80000000, autoTapAdd: 2, desc: "自動タップが毎秒 +2 回増加"},
+                {name: "ブラックホール屁", cost: 400000000, autoTapAdd: 2, desc: "自動タップが毎秒 +2 回増加"},
+                {name: "全宇宙的悪臭の奔流", cost: 2000000000, autoTapAdd: 3, desc: "自動タップが毎秒 +3 回増加"},
+                {name: "次元破りのスカンク", cost: 10000000000, autoTapAdd: 3, desc: "自動タップが毎秒 +3 回増加"},
+                {name: "神をも屈服させる悪臭", cost: 50000000000, autoTapAdd: 3, desc: "自動タップが毎秒 +3 回増加"},
+                {name: "究極ガス要塞ロドリゴ", cost: 250000000000, autoTapAdd: 4, desc: "自動タップが毎秒 +4 回増加"},
+                {name: "無間地獄のガス室", cost: 1200000000000, autoTapAdd: 4, desc: "自動タップが毎秒 +4 回増加"},
+                {name: "超新星オナラ爆弾", cost: 6000000000000, autoTapAdd: 5, desc: "自動タップが毎秒 +5 回増加"},
+                {name: "猛毒プラズマスカンク", cost: 30000000000000, autoTapAdd: 5, desc: "自動タップが毎秒 +5 回増加"},
+                {name: "死臭のダークマター", cost: 150000000000000, autoTapAdd: 6, desc: "自動タップが毎秒 +6 回増加"},
+                {name: "悪臭の絶対零度", cost: 750000000000000, autoTapAdd: 6, desc: "自動タップが毎秒 +6 回増加"},
+                {name: "スカンク神ロドリゴ", cost: 3800000000000000, autoTapAdd: 7, desc: "自動タップが毎秒 +7 回増加"},
+                {name: "全宇宙悪臭化計画", cost: 19000000000000000, autoTapAdd: 8, desc: "自動タップが毎秒 +8 回増加"},
+                {name: "銀河系エチケット違反", cost: 95000000000000000, autoTapAdd: 8, desc: "自動タップが毎秒 +8 回増加"},
+                {name: "次元崩壊の放屁", cost: 480000000000000000, autoTapAdd: 9, desc: "自動タップが毎秒 +9 回増加"},
+                {name: "無量大数ガスストーム", cost: 2400000000000000000, autoTapAdd: 10, desc: "自動タップが毎秒 +10 回増加"},
+                {name: "神域エフロビウム", cost: 12000000000000000000, autoTapAdd: 11, desc: "自動タップが毎秒 +11 回増加"},
+                {name: "天界大悪臭ドーム", cost: 60000000000000000000, autoTapAdd: 12, desc: "自動タップが毎秒 +12 回増加"},
+                {name: "エントロピー・ガス", cost: 300000000000000000000, autoTapAdd: 13, desc: "自動タップが毎秒 +13 回増加"},
+                {name: "全能悪臭ロドリゴ", cost: 1500000000000000000000, autoTapAdd: 14, desc: "自動タップが毎秒 +14 回増加"},
+                {name: "終焉のスカンクミスト", cost: 7500000000000000000000, autoTapAdd: 15, desc: "自動タップが毎秒 +15 回増加"},
+                {name: "ガス・オメガ・ジ・エンド", cost: 38000000000000000000000, autoTapAdd: 20, desc: "自動タップが毎秒 +20 回増加"}
+            ], 'autotap'),
+
+            generate60Items([
+                {name: "💩をつかむ素手", cost: 120, tapAdd: 1, synAdd: 0.01, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "ザシアンの💩咀嚼法", cost: 900, tapAdd: 2, synAdd: 0.01, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "伝説の💩スプーン", cost: 5500, tapAdd: 5, synAdd: 0.02, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "神々の💩錬金術", cost: 30000, tapAdd: 12, synAdd: 0.02, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "犬の王国コンボ", cost: 150000, tapAdd: 30, synAdd: 0.03, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "犬神の加護", cost: 750000, tapAdd: 80, synAdd: 0.03, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "無敗のウンチハンター", cost: 3800000, tapAdd: 200, synAdd: 0.04, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "永遠の咀嚼ループ", cost: 19000000, tapAdd: 500, synAdd: 0.05, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "伝説獣の胃袋", cost: 95000000, tapAdd: 1200, synAdd: 0.06, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "聖なる排泄祝祭", cost: 480000000, tapAdd: 3000, synAdd: 0.07, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "犬神皇ウホザシアン", cost: 2400000000, tapAdd: 8000, synAdd: 0.08, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "全知全能の咀嚼力", cost: 12000000000, tapAdd: 20000, synAdd: 0.10, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "超越神獣の抱擁", cost: 60000000000, tapAdd: 50000, synAdd: 0.12, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "究極真・犬神顕現", cost: 300000000000, tapAdd: 120000, synAdd: 0.15, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "全次元完全咀嚼完了", cost: 1500000000000, tapAdd: 300000, synAdd: 0.20, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "神獣王の牙", cost: 7500000000000, tapAdd: 800000, synAdd: 0.25, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "無限咀嚼マトリクス", cost: 38000000000000, tapAdd: 2000000, synAdd: 0.30, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "時空を超える犬神", cost: 190000000000000, tapAdd: 5000000, synAdd: 0.38, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "オメガ・ザシアン", cost: 950000000000000, tapAdd: 12000000, synAdd: 0.47, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "全存在の咀嚼支配", cost: 4800000000000000, tapAdd: 30000000, synAdd: 0.58, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "天界犬神の饗宴", cost: 24000000000000000, tapAdd: 80000000, synAdd: 0.70, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "超新星モグモグ", cost: 120000000000000000, tapAdd: 200000000, synAdd: 0.85, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "マルチバース咀嚼", cost: 600000000000000000, tapAdd: 500000000, synAdd: 1.00, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "無量大数フェス", cost: 3000000000000000000, tapAdd: 1200000000, synAdd: 1.20, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "神聖犬神顕現", cost: 15000000000000000000, tapAdd: 3000000000, synAdd: 1.50, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "絶対咀嚼エントロピー", cost: 75000000000000000000, tapAdd: 8000000000, synAdd: 1.80, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "次元断絶ザシアン", cost: 380000000000000000000, tapAdd: 20000000000, synAdd: 2.15, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "宇宙創世モグモグ光線", cost: 1900000000000000000000, tapAdd: 50000000000, synAdd: 2.55, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "真・全能犬神", cost: 9500000000000000000000, tapAdd: 120000000000, synAdd: 3.00, desc: "タップ威力とシナジー効率が上昇"},
+                {name: "ザシアン・オメガ・ジ・エンド", cost: 48000000000000000000000, tapAdd: 300000000000, synAdd: 3.60, desc: "タップ威力とシナジー効率が強化される"}
+            ], 'dog'),
+
+            generate60Items([
+                {name: "メレメレの妖精息吹", cost: 150, critPowerAdd: 0.5, autoCritAdd: 0.005, desc: "ニハシのクリティカル倍率を加算し自動タップでクリティカル発生"},
+                {name: "カプ式レスリング初級", cost: 1200, critPowerAdd: 0.8, autoCritAdd: 0.008, desc: "超人レスラーの技量が上がる"},
+                {name: "妖精王のラリアット", cost: 7500, critPowerAdd: 1.2, autoCritAdd: 0.012, desc: "超人レスラーの技量が上がる"},
+                {name: "ジャングル王座決定戦", cost: 42000, critPowerAdd: 1.8, autoCritAdd: 0.016, desc: "超人レスラーの技量が上がる"},
+                {name: "フェアリー・スープレックス", cost: 210000, critPowerAdd: 2.5, autoCritAdd: 0.020, desc: "超人レスラーの技量が上がる"},
+                {name: "神気解放パイルドライバー", cost: 1050000, critPowerAdd: 3.5, autoCritAdd: 0.025, desc: "超人レスラーの技量が上がる"},
+                {name: "メレメレ島防衛戦", cost: 5200000, critPowerAdd: 4.8, autoCritAdd: 0.030, desc: "超人レスラーの技量が上がる"},
+                {name: "全次元マットの覇者", cost: 26000000, critPowerAdd: 6.5, autoCritAdd: 0.035, desc: "超人レスラーの技量が上がる"},
+                {name: "超人仙人のエルボー", cost: 130000000, critPowerAdd: 8.5, autoCritAdd: 0.040, desc: "超人レスラーの技量が上がる"},
+                {name: "伝説のチャンピオンベルト", cost: 650000000, critPowerAdd: 11.0, autoCritAdd: 0.045, desc: "超人レスラーの技量が上がる"},
+                {name: "神域プロレスリング", cost: 3200000000, critPowerAdd: 14.0, autoCritAdd: 0.050, desc: "超人レスラーの技量が上がる"},
+                {name: "ギャラクシー・DDT", cost: 16000000000, critPowerAdd: 18.0, autoCritAdd: 0.060, desc: "超人レスラーの技量が上がる"},
+                {name: "無敗のフェアリーゴッド", cost: 80000000000, critPowerAdd: 23.0, autoCritAdd: 0.070, desc: "超人レスラーの技量が上がる"},
+                {name: "宇宙王座統一戦", cost: 400000000000, critPowerAdd: 29.0, autoCritAdd: 0.080, desc: "超人レスラーの技量が上がる"},
+                {name: "オメガ・レスリング・アーツ", cost: 2000000000000, critPowerAdd: 36.0, autoCritAdd: 0.090, desc: "超人レスラーの技量が上がる"},
+                {name: "全存在のフォール勝ち", cost: 10000000000000, critPowerAdd: 45.0, autoCritAdd: 0.100, desc: "超人レスラーの技量が上がる"},
+                {name: "神聖妖精チャンピオン", cost: 50000000000000, critPowerAdd: 55.0, autoCritAdd: 0.110, desc: "超人レスラーの技量が上がる"},
+                {name: "マルチバース・リング", cost: 250000000000000, critPowerAdd: 68.0, autoCritAdd: 0.120, desc: "超人レスラーの技量が上がる"},
+                {name: "超新星ブレイキン", cost: 1250000000000000, critPowerAdd: 83.0, autoCritAdd: 0.135, desc: "超人レスラーの技量が上がる"},
+                {name: "天界最強タッグ", cost: 6200000000000000, critPowerAdd: 100.0, autoCritAdd: 0.150, desc: "超人レスラーの技量が上がる"},
+                {name: "無限メレメレロード", cost: 31000000000000000, critPowerAdd: 120.0, autoCritAdd: 0.165, desc: "超人レスラーの技量が上がる"},
+                {name: "絶対王者プルプルマン", cost: 155000000000000000, critPowerAdd: 145.0, autoCritAdd: 0.180, desc: "超人レスラーの技量が上がる"},
+                {name: "エントロピー・スラム", cost: 780000000000000000, critPowerAdd: 175.0, autoCritAdd: 0.200, desc: "超人レスラーの技量が上がる"},
+                {name: "次元断絶ラリアット", cost: 3900000000000000000, critPowerAdd: 210.0, autoCritAdd: 0.220, desc: "超人レスラーの技量が上がる"},
+                {name: "宇宙創世スープレックス", cost: 19500000000000000000, critPowerAdd: 250.0, autoCritAdd: 0.240, desc: "超人レスラーの技量が上がる"},
+                {name: "神々のグランドクロス", cost: 98000000000000000000, critPowerAdd: 300.0, autoCritAdd: 0.270, desc: "超人レスラーの技量が上がる"},
+                {name: "終焉のプロレスラー", cost: 490000000000000000000, critPowerAdd: 360.0, autoCritAdd: 0.300, desc: "超人レスラーの技量が上がる"},
+                {name: "全能神のチャンピオン", cost: 2450000000000000000000, critPowerAdd: 430.0, autoCritAdd: 0.350, desc: "超人レスラーの技量が上がる"},
+                {name: "天界無双エルボー", cost: 12200000000000000000000, critPowerAdd: 510.0, autoCritAdd: 0.400, desc: "超人レスラーの技量が上がる"},
+                {name: "プルプル・オメガ・エンド", cost: 61000000000000000000000, critPowerAdd: 600.0, autoCritAdd: 0.500, desc: "究極の超人レスリング奥義"}
+            ], 'pulrupuru'),
+
+            generate60Items([
+                {name: "プリミティブ・ウェーブ", cost: 200, feverMultAdd: 0.1, allTotalAdd: 0.0001, desc: "フィーバー倍率を強化し全購入数で全体生産を微増"},
+                {name: "深海の原始胎動", cost: 1500, feverMultAdd: 0.15, allTotalAdd: 0.00015, desc: "深海のチャンピオンの加護"},
+                {name: "古代オーガの咆哮", cost: 9000, feverMultAdd: 0.2, allTotalAdd: 0.0002, desc: "深海のチャンピオンの加護"},
+                {name: "海神のプルービーム", cost: 50000, feverMultAdd: 0.3, allTotalAdd: 0.00025, desc: "深海のチャンピオンの加護"},
+                {name: "プリミティブ・タイド", cost: 250000, feverMultAdd: 0.4, allTotalAdd: 0.0003, desc: "深海のチャンピオンの加護"},
+                {name: "大洋の圧倒的支配", cost: 1250000, feverMultAdd: 0.5, allTotalAdd: 0.00035, desc: "深海のチャンピオンの加護"},
+                {name: "古代水流の要塞", cost: 6200000, feverMultAdd: 0.6, allTotalAdd: 0.0004, desc: "深海のチャンピオンの加護"},
+                {name: "マリンクエスト極限", cost: 31000000, feverMultAdd: 0.8, allTotalAdd: 0.0005, desc: "深海のチャンピオンの加護"},
+                {name: "銀河系プリミティブ海", cost: 155000000, feverMultAdd: 1.0, allTotalAdd: 0.0006, desc: "深海のチャンピオンの加護"},
+                {name: "全海洋の原初", cost: 780000000, feverMultAdd: 1.2, allTotalAdd: 0.0007, desc: "深海のチャンピオンの加護"},
+                {name: "神域プリミティブ・シー", cost: 3900000000, feverMultAdd: 1.5, allTotalAdd: 0.0008, desc: "深海のチャンピオンの加護"},
+                {name: "超古代ウェーブ光線", cost: 19500000000, feverMultAdd: 1.8, allTotalAdd: 0.0009, desc: "深海のチャンピオンの加護"},
+                {name: "深海王の神格降臨", cost: 98000000000, feverMultAdd: 2.2, allTotalAdd: 0.0010, desc: "深海のチャンピオンの加護"},
+                {name: "全次元海洋統一", cost: 490000000000, feverMultAdd: 2.6, allTotalAdd: 0.0011, desc: "深海のチャンピオンの加護"},
+                {name: "オメガ・プリミティブ", cost: 2450000000000, feverMultAdd: 3.1, allTotalAdd: 0.0012, desc: "深海のチャンピオンの加護"},
+                {name: "宇宙創世の大海原", cost: 12200000000000, feverMultAdd: 3.7, allTotalAdd: 0.0014, desc: "深海のチャンピオンの加護"},
+                {name: "神聖プリミティブ巨獣", cost: 61000000000000, feverMultAdd: 4.4, allTotalAdd: 0.0016, desc: "深海のチャンピオンの加護"},
+                {name: "マルチバース・オーシャン", cost: 305000000000000, feverMultAdd: 5.2, allTotalAdd: 0.0018, desc: "深海のチャンピオンの加護"},
+                {name: "超新星タイダルウェーブ", cost: 1520000000000000, feverMultAdd: 6.1, allTotalAdd: 0.0020, desc: "深海のチャンピオンの加護"},
+                {name: "天界プライマル海", cost: 7600000000000000, feverMultAdd: 7.1, allTotalAdd: 0.0022, desc: "深海のチャンピオンの加護"},
+                {name: "無限プリミティブ回廊", cost: 38000000000000000, feverMultAdd: 8.2, allTotalAdd: 0.0025, desc: "深海のチャンピオンの加護"},
+                {name: "絶対海王ピピンゴマン", cost: 190000000000000000, feverMultAdd: 9.5, allTotalAdd: 0.0028, desc: "深海のチャンピオンの加護"},
+                {name: "エントロピー・タイド", cost: 950000000000000000, feverMultAdd: 11.0, allTotalAdd: 0.0031, desc: "深海のチャンピオンの加護"},
+                {name: "次元断絶プリミティブ", cost: 4800000000000000000, feverMultAdd: 13.0, allTotalAdd: 0.0035, desc: "深海のチャンピオンの加護"},
+                {name: "宇宙創造の原初海", cost: 24000000000000000000, feverMultAdd: 15.5, allTotalAdd: 0.0040, desc: "深海のチャンピオンの加護"},
+                {name: "神々のプリミティブ宮殿", cost: 120000000000000000000, feverMultAdd: 18.5, allTotalAdd: 0.0045, desc: "深海のチャンピオンの加護"},
+                {name: "終焉の深海要塞", cost: 600000000000000000000, feverMultAdd: 22.0, allTotalAdd: 0.0050, desc: "深海のチャンピオンの加護"},
+                {name: "全能神の専用原初海", cost: 3000000000000000000000, feverMultAdd: 26.0, allTotalAdd: 0.0060, desc: "深海のチャンピオンの加護"},
+                {name: "天界プリミティブ管制塔", cost: 15000000000000000000000, feverMultAdd: 31.0, allTotalAdd: 0.0070, desc: "深海のチャンピオンの加護"},
+                {name: "ピピンゴ・オメガ・エンド", cost: 75000000000000000000000, feverMultAdd: 38.0, allTotalAdd: 0.0085, desc: "究極のプリミティブシー奥義"}
+            ], 'pipingoman'),
+
+            generate60Items([
+                {name: "腸内フローラ革命", cost: 200, allBoost: 0.001, desc: "全生産効率が微弱に +0.1% 底上げされる"},
+                {name: "💩排出専用ハイウェイ", cost: 1500, allBoost: 0.001, desc: "全生産効率が微弱に +0.1% 底上げされる"},
+                {name: "全自動水洗タワー", cost: 8500, allBoost: 0.0015, desc: "全生産効率が微弱に +0.15% 底上げされる"},
+                {name: "黄金便器プラント", cost: 45000, allBoost: 0.0015, desc: "全生産効率が微弱に +0.15% 底上げされる"},
+                {name: "極秘裏稼業コンテナ", cost: 220000, allBoost: 0.002, desc: "全生産効率が微弱に +0.2% 底上げされる"},
+                {name: "メガトン浄化装置", cost: 1100000, allBoost: 0.002, desc: "全生産効率が微弱に +0.2% 底上げされる"},
+                {name: "スペースファクトリー", cost: 5500000, allBoost: 0.0025, desc: "全生産効率が微弱に +0.25% 底上げされる"},
+                {name: "太陽系💩ステーション", cost: 28000000, allBoost: 0.0025, desc: "全生産効率が微弱に +0.25% 底上げされる"},
+                {name: "銀河系バイオドーム", cost: 140000000, allBoost: 0.003, desc: "全生産効率が微弱に +0.3% 底上げされる"},
+                {name: "全宇宙排泄管制塔", cost: 700000000, allBoost: 0.003, desc: "全生産効率が微弱に +0.3% 底上げされる"},
+                {name: "多次元ワームホール", cost: 3500000000, allBoost: 0.0035, desc: "全生産効率が微弱に +0.35% 底上げされる"},
+                {name: "神界直結パイプライン", cost: 18000000000, allBoost: 0.0035, desc: "全生産効率が微弱に +0.35% 底上げされる"},
+                {name: "無制限エントロピー炉", cost: 90000000000, allBoost: 0.004, desc: "全生産効率が微弱に +0.4% 底上げされる"},
+                {name: "全存在の便所化", cost: 450000000000, allBoost: 0.004, desc: "全生産効率が微弱に +0.4% 底上げされる"},
+                {name: "神羅万象💩ファクトリー", cost: 2200000000000, allBoost: 0.0045, desc: "全生産効率が微弱に +0.45% 底上げされる"},
+                {name: "超宇宙プラント", cost: 11000000000000, allBoost: 0.0045, desc: "全生産効率が微弱に +0.45% 底上げされる"},
+                {name: "永遠の浄化要塞", cost: 55000000000000, allBoost: 0.005, desc: "全生産効率が微弱に +0.5% 底上げされる"},
+                {name: "オメガ・トイレット", cost: 280000000000000, allBoost: 0.005, desc: "全生産効率が微弱に +0.5% 底上げされる"},
+                {name: "マルチバース下水道", cost: 1400000000000000, allBoost: 0.0055, desc: "全生産効率が微弱に +0.55% 底上げされる"},
+                {name: "神域エントロピー炉", cost: 7000000000000000, allBoost: 0.0055, desc: "全生産効率が微弱に +0.55% 底上げされる"},
+                {name: "天界排泄管制マトリクス", cost: 35000000000000000, allBoost: 0.006, desc: "全生産効率が微弱に +0.6% 底上げされる"},
+                {name: "無量大数プラント", cost: 180000000000000000, allBoost: 0.006, desc: "全生産効率が微弱に +0.6% 底上げされる"},
+                {name: "次元断絶水洗タワー", cost: 900000000000000000, allBoost: 0.0065, desc: "全生産効率が微弱に +0.65% 底上げされる"},
+                {name: "宇宙創世の便座", cost: 4500000000000000000, allBoost: 0.007, desc: "全生産効率が微弱に +0.7% 底上げされる"},
+                {name: "神聖ファクトリー宮殿", cost: 22000000000000000000, allBoost: 0.008, desc: "全生産効率が微弱に +0.8% 底上げされる"},
+                {name: "絶対浄化オメガドーム", cost: 110000000000000000000, allBoost: 0.009, desc: "全生産効率が微弱に +0.9% 底上げされる"},
+                {name: "エントロピー・プラント", cost: 550000000000000000000, allBoost: 0.010, desc: "全生産効率が微弱に +1.0% 底上げされる"},
+                {name: "全能神の専用便所", cost: 2800000000000000000000, allBoost: 0.012, desc: "全生産効率が微弱に +1.2% 底上げされる"},
+                {name: "終焉の排泄管制塔", cost: 14000000000000000000000, allBoost: 0.015, desc: "全生産効率が微弱に +1.5% 底上げされる"},
+                {name: "ファクトリー・オメガ・ジ・エンド", cost: 70000000000000000000000, allBoost: 0.020, desc: "全生産効率が微弱に +2.0% 底上げされる"}
+            ], 'facility')
+        ];
+
+        const dialogues = {
+            gorilla: [
+                "からばいよ: 工場が稼働し始めたウホ！モリモリ生産するウホ！",
+                "からばいよ: もっと重労働をこなすウホ！筋肉とうんちは裏切らないウホ！",
+                "からばいよ: ジャングルの王の底力を見せるウホ！",
+                "からばいよ: 最高潮のうんちラッシュだウホ！",
+                "からばいよ: ウホッ！？我慢できずにその場でブリブリ漏らしちゃったウホ！！",
+                "からばいよ: ドカン！パンツを突き破って大爆発したウホ！！"
+            ],
+            toucan: [
+                "ニハシ: ﾜｶﾙ",
+                "ニハシ: ﾜｶﾗﾅｲ",
+                "ニハシ: ﾜｶｶ",
+                "ニハシ: ﾜｶﾙ ﾜｶｶ",
+                "ニハシ: ｳﾝｺ",
+                "ニハシ: ｹﾊﾞﾌﾞ"
+            ],
+            skunk: [
+                "ロドリゴ: ガス全開ガス！強烈な臭いで生産スピードを加速させるガス！",
+                "ロドリゴ: くさっ…だがこの悪臭こそが我がパワーの源ガス！",
+                "ロドリゴ: 周囲の迷惑を顧みず尻尾を振るガス！",
+                "ロドリゴ: ガス爆発寸前ガス！",
+                "ロドリゴ: ボカンッ！！お尻から大爆発が起きたガスーーッ！！",
+                "ロドリゴ: 屁の爆風で地球がちょっと揺れたガス！"
+            ],
+            dog: [
+                "ザシアン: モグモグ…このうんち、味わい深くて最高に美味いモグ！",
+                "ザシアン: ガツガツ食べるほどに湧き出るパワーモグ！",
+                "ザシアン: どこまでも走りながら咀嚼し続けるモグ！",
+                "ザシアン: 究極の満足感モグ！",
+                "ザシアン: 雑に目の前のうんちをパクパク貪り喰らうモグ！",
+                "ザシアン: モグモグモグ…味とかどうでもいいからとにかく食うモグ！"
+            ],
+            pulrupuru: [
+                "プルプルマン: 🧚メレメレ島のマットは俺が守るフェアリー！華麗にフォールするフェアリー！",
+                "プルプルマン: 🧚筋肉と妖精パワーの融合を見るがいいフェアリー！",
+                "プルプルマン: 🧚チャンピオンのエルボーは避けられないフェアリー！",
+                "プルプルマン: 🧚どんな強敵もこのスープレックスでマットに沈めるフェアリー！",
+                "プルプルマン: 🧚フェアリーラリアットで全てを薙ぎ払うフェアリー！",
+                "プルプルマン: 🧚俺の美技に酔いしれるフェアリー！"
+            ],
+            pipingoman: [
+                "ピピンゴマン: 🐳プリミティブシーの底より、深海の怒りを見せるウキ！",
+                "ピピンゴマン: 🐳太古のオーガウェーブで全てを圧倒するウキ！",
+                "ピピンゴマン: 🐳海のチャンピオンたる我が力、思い知るがいいウキ！",
+                "ピピンゴマン: 🐳原始の荒波がこの工場を最高潮に引き上げるウキ！",
+                "ピピンゴマン: 🐳深海の底から湧き出るエネルギー、全開だウキ！",
+                "ピピンゴマン: 🐳プリミティブオーラで地球を青く染め上げるウキ！"
+            ]
+        };
+
+        window.onload = function() {
+            loadGame();
+            renderTabs();
+            renderShop();
+            updateBackgroundSprites();
+            setInterval(gameLoop, 100);
+            setInterval(randomDialogue, 6000);
+            setInterval(spawnRandomBird, 9000);
+        };
+
+        function getMaxUnlockedStage(divineCount) {
+            return Math.min(60, 30 + divineCount * 5);
+        }
+
+        function getRequiredDivineForStage(stageIndex) {
+            if (stageIndex < 30) return 0;
+            return Math.ceil((stageIndex - 29) / 5);
+        }
+
+        function getItemCost(item, currentLevel) {
+            return Math.floor(item.cost * Math.pow(1.28, currentLevel));
+        }
+
+        function calculateGoldenGains() {
+            const baseTarget = 1e14;
+            if (gameState.cumulative < baseTarget) return 0;
+            return Math.floor(Math.pow(gameState.cumulative / baseTarget, 0.20));
+        }
+
+        function getNextGoalCumulative(currentRunGained) {
+            const baseTarget = 1e14;
+            const targetCount = currentRunGained + 1;
+            return Math.pow(targetCount, 5) * baseTarget;
+        }
+
+        function getNextDivineCost(currentDivine) {
+            const targetDivine = currentDivine + 1;
+            if (targetDivine === 1) return 100;
+            if (targetDivine === 2) return 500;
+            if (targetDivine === 3) return 2500;
+            return Math.ceil(Math.pow(targetDivine, 5.0) * 10000);
+        }
+
+        function gameLoop() {
+            checkRings();
+
+            let divineMultiplier = Math.pow(1.5, gameState.divineReincarnations);
+            let reincMultiplier = (1 + (0.005 * gameState.goldenReincarnations)) * divineMultiplier;
+            
+            let facilityBoostSum = 0;
+            gameState.levels.facility.forEach((lvl, idx) => {
+                facilityBoostSum += lvl * baseShop[6][idx].allBoost;
+            });
+            let facilityMultiplier = 1 + facilityBoostSum;
+
+            let totalPurchasedLevels = 0;
+            Object.keys(gameState.levels).forEach(k => {
+                gameState.levels[k].forEach(lv => totalPurchasedLevels += lv);
+            });
+            let pipingomanTotalBoost = 1;
+            gameState.levels.pipingoman.forEach((lvl, idx) => {
+                pipingomanTotalBoost += lvl * baseShop[5][idx].allTotalAdd;
+            });
+            pipingomanTotalBoost += totalPurchasedLevels * 0.00001;
+
+            let ringBoost = 1.0;
+            if (gameState.rings && gameState.rings.includes('ring_gorilla')) ringBoost += 0.5;
+            if (gameState.rings && gameState.rings.includes('ring_pipingoman')) ringBoost *= 2.0;
+
+            let autoPoopSum = 0;
+            gameState.levels.gorilla.forEach((lvl, idx) => { autoPoopSum += lvl * baseShop[0][idx].cps; });
+
+            let totalSynergy = 1.0;
+            gameState.levels.dog.forEach((lvl, idx) => { totalSynergy += lvl * baseShop[3][idx].synAdd; });
+
+            let totalGps = autoPoopSum * totalSynergy * facilityMultiplier * pipingomanTotalBoost * ringBoost * reincMultiplier;
+
+            let currentFeverDuration = 30000;
+            if (gameState.rings && gameState.rings.includes('ring_pipingoman')) currentFeverDuration = 60000;
+
+            if (gameState.feverActive) {
+                let feverBonus = 7;
+                gameState.levels.pipingoman.forEach((lvl, idx) => {
+                    feverBonus += lvl * baseShop[5][idx].feverMultAdd;
+                });
+                totalGps *= feverBonus;
+            }
+
+            let earnedPerTick = totalGps / 10;
+            if (earnedPerTick > 0) {
+                gameState.score += earnedPerTick;
+                gameState.cumulative += earnedPerTick;
+            }
+
+            let totalAutoTap = 0;
+            gameState.levels.skunk.forEach((lvl, idx) => { totalAutoTap += lvl * baseShop[2][idx].autoTapAdd; });
+            if (gameState.rings && gameState.rings.includes('ring_skunk')) totalAutoTap += 10;
+
+            if (totalAutoTap > 0) {
+                let autoClicksPerTick = totalAutoTap / 10;
+                if (Math.random() < autoClicksPerTick || autoClicksPerTick >= 1) {
+                    let pulrupuruCritChance = 0;
+                    gameState.levels.pulrupuru.forEach((lvl, idx) => {
+                        pulrupuruCritChance += lvl * baseShop[4][idx].autoCritAdd;
+                    });
+                    if (gameState.rings && gameState.rings.includes('ring_pulrupuru')) pulrupuruCritChance += 0.15;
+
+                    let isAutoCrit = Math.random() < pulrupuruCritChance;
+                    let pulrupuruPowerAdd = 0;
+                    gameState.levels.pulrupuru.forEach((lvl, idx) => {
+                        pulrupuruPowerAdd += lvl * baseShop[4][idx].critPowerAdd;
+                    });
+                    let ringCritMultiAdd = (gameState.rings && gameState.rings.includes('ring_toucan')) ? 2.0 : 0;
+
+                    let baseCritMulti = gameState.critMulti;
+                    gameState.levels.toucan.forEach((lvl, idx) => { baseCritMulti += lvl * baseShop[1][idx].multAdd; });
+
+                    let effectiveCritMulti = baseCritMulti + pulrupuruPowerAdd + ringCritMultiAdd;
+
+                    let manualPowerSum = 1;
+                    gameState.levels.dog.forEach((lvl, idx) => { manualPowerSum += lvl * baseShop[3][idx].tapAdd; });
+                    let ringTapPowerBoost = (gameState.rings && gameState.rings.includes('ring_dog')) ? 5.0 : 0.0;
+
+                    let autoPower = (manualPowerSum + ringTapPowerBoost) * totalSynergy * facilityMultiplier * pipingomanTotalBoost * ringBoost * reincMultiplier;
+                    if (isAutoCrit) autoPower *= effectiveCritMulti;
+                    if (gameState.feverActive) {
+                        let feverBonus = 7;
+                        gameState.levels.pipingoman.forEach((lvl, idx) => {
+                            feverBonus += lvl * baseShop[5][idx].feverMultAdd;
+                        });
+                        autoPower *= feverBonus;
+                    }
+                    gameState.score += autoPower;
+                    gameState.cumulative += autoPower;
+                }
+            }
+
+            if (gameState.feverActive) {
+                gameState.feverTimer -= 100;
+                if (gameState.feverTimer <= 0) {
+                    gameState.feverActive = false;
+                    document.getElementById('fever-bar-container').classList.add('hidden');
+                    document.body.classList.remove('fever-mode');
+                    document.getElementById('dialogue-icon').innerText = '🦜';
+                    document.getElementById('dialogue-text').innerText = 'ニハシ: ﾜｶﾗﾅｲ';
+                } else {
+                    let pct = (gameState.feverTimer / currentFeverDuration) * 100;
+                    document.getElementById('fever-bar').style.width = pct + '%';
+                }
+            }
+
+            updateUI();
+        }
+
+        function randomDialogue() {
+            if (gameState.feverActive) return;
+            let availableCats = ['gorilla', 'toucan', 'skunk', 'dog'];
+            if (gameState.divineReincarnations >= 1) availableCats.push('pulrupuru');
+            if (gameState.divineReincarnations >= 3) availableCats.push('pipingoman');
+
+            const chosenCat = availableCats[Math.floor(Math.random() * availableCats.length)];
+            const list = dialogues[chosenCat];
+            const text = list[Math.floor(Math.random() * list.length)];
+            
+            const icons = { gorilla: '🦍', toucan: '🦜', skunk: '🦨', dog: '🐕', pulrupuru: '🧚', pipingoman: '🐳' };
+            document.getElementById('dialogue-icon').innerText = icons[chosenCat];
+            document.getElementById('dialogue-text').innerText = text;
+        }
+
+        function spawnRandomBird() {
+            if (!gameState.feverActive && Math.random() < 0.6) {
+                const bird = document.getElementById('fever-bird');
+                bird.style.top = (15 + Math.random() * 50) + '%';
+                bird.style.left = (10 + Math.random() * 60) + '%';
+                bird.classList.remove('hidden');
+                setTimeout(() => {
+                    bird.classList.add('hidden');
+                }, 4000);
+            }
+        }
+
+        document.getElementById('fever-bird').addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            gameState.feverActive = true;
+            gameState.feverTimer = (gameState.rings && gameState.rings.includes('ring_pipingoman')) ? 60000 : 30000;
+            document.getElementById('fever-bird').classList.add('hidden');
+            document.body.classList.add('fever-mode');
+            document.getElementById('fever-bar-container').classList.remove('hidden');
+            document.getElementById('dialogue-icon').innerText = '🦜';
+            document.getElementById('dialogue-text').innerText = 'ニハシ: ﾜｶﾙ ﾜｶｶ！';
+            updateBackgroundSprites();
+            showFloatingText(e.clientX, e.clientY, '🔥フィーバータイム発動!!', '#ffd700');
+        });
+
+        const clickBtn = document.getElementById('click-btn');
+        
+        function handleManualClick(clientX, clientY) {
+            let divineMultiplier = Math.pow(1.5, gameState.divineReincarnations);
+            let reincMultiplier = (1 + (0.005 * gameState.goldenReincarnations)) * divineMultiplier;
+            let facilityBoostSum = 0;
+            gameState.levels.facility.forEach((lvl, idx) => {
+                facilityBoostSum += lvl * baseShop[6][idx].allBoost;
+            });
+            let facilityMultiplier = 1 + facilityBoostSum;
+
+            let totalPurchasedLevels = 0;
+            Object.keys(gameState.levels).forEach(k => {
+                gameState.levels[k].forEach(lv => totalPurchasedLevels += lv);
+            });
+            let pipingomanTotalBoost = 1;
+            gameState.levels.pipingoman.forEach((lvl, idx) => {
+                pipingomanTotalBoost += lvl * baseShop[5][idx].allTotalAdd;
+            });
+            pipingomanTotalBoost += totalPurchasedLevels * 0.00001;
+
+            let ringBoost = 1.0;
+            if (gameState.rings && gameState.rings.includes('ring_gorilla')) ringBoost += 0.5;
+            if (gameState.rings && gameState.rings.includes('ring_pipingoman')) ringBoost *= 2.0;
+
+            let manualPowerSum = 1;
+            gameState.levels.dog.forEach((lvl, idx) => { manualPowerSum += lvl * baseShop[3][idx].tapAdd; });
+            let ringTapPowerBoost = (gameState.rings && gameState.rings.includes('ring_dog')) ? 5.0 : 0.0;
+            let ringCritRateAdd = (gameState.rings && gameState.rings.includes('ring_pulrupuru')) ? 0.15 : 0.0;
+            let ringCritMultiAdd = (gameState.rings && gameState.rings.includes('ring_toucan')) ? 2.0 : 0.0;
+
+            let baseCritRate = 0.05;
+            gameState.levels.toucan.forEach((lvl, idx) => { baseCritRate += lvl * baseShop[1][idx].critAdd; });
+            let totalCritRate = baseCritRate + ringCritRateAdd;
+
+            let isCrit = Math.random() < totalCritRate;
+
+            let pulrupuruPowerAdd = 0;
+            gameState.levels.pulrupuru.forEach((lvl, idx) => {
+                pulrupuruPowerAdd += lvl * baseShop[4][idx].critPowerAdd;
+            });
+
+            let baseCritMulti = 3.0;
+            gameState.levels.toucan.forEach((lvl, idx) => { baseCritMulti += lvl * baseShop[1][idx].multAdd; });
+            let effectiveCritMulti = baseCritMulti + pulrupuruPowerAdd + ringCritMultiAdd;
+
+            let totalSynergy = 1.0;
+            gameState.levels.dog.forEach((lvl, idx) => { totalSynergy += lvl * baseShop[3][idx].synAdd; });
+
+            let power = (manualPowerSum + ringTapPowerBoost) * totalSynergy * facilityMultiplier * pipingomanTotalBoost * ringBoost * reincMultiplier;
+            if (isCrit) {
+                power *= effectiveCritMulti;
+                document.getElementById('dialogue-icon').innerText = '🦜';
+                document.getElementById('dialogue-text').innerText = 'ニハシ: ﾜｶﾙ';
+            }
+            if (gameState.feverActive) {
+                let feverBonus = 7;
+                gameState.levels.pipingoman.forEach((lvl, idx) => {
+                    feverBonus += lvl * baseShop[5][idx].feverMultAdd;
+                });
+                power *= feverBonus;
+            }
+
+            gameState.score += power;
+            gameState.cumulative += power;
+
+            clickBtn.classList.add('bounce-anim');
+            setTimeout(() => clickBtn.classList.remove('bounce-anim'), 120);
+
+            showFloatingText(clientX || window.innerWidth/2, clientY || window.innerHeight/2, '+' + formatNum(Math.floor(power)) + (isCrit ? ' CRIT!!' : ''), isCrit ? '#f43f5e' : '#fbbf24');
+        }
+
+        let clickHoldTimer = null;
+        let clickIntervalTimer = null;
+
+        clickBtn.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            let lastClientX = e.clientX || window.innerWidth / 2;
+            let lastClientY = e.clientY || window.innerHeight / 2;
+            handleManualClick(lastClientX, lastClientY);
+
+            clickHoldTimer = setTimeout(() => {
+                if (clickIntervalTimer) clearInterval(clickIntervalTimer);
+                clickIntervalTimer = setInterval(() => {
+                    handleManualClick(lastClientX, lastClientY);
+                }, 80);
+            }, 400);
+        });
+
+        function clearClickHold() {
+            if (clickHoldTimer) { clearTimeout(clickHoldTimer); clickHoldTimer = null; }
+            if (clickIntervalTimer) { clearInterval(clickIntervalTimer); clickIntervalTimer = null; }
+        }
+
+        window.addEventListener('pointerup', clearClickHold);
+        window.addEventListener('pointercancel', clearClickHold);
+
+        function showFloatingText(x, y, text, color) {
+            const el = document.createElement('div');
+            el.className = 'float-text text-sm md:text-base';
+            el.style.color = color;
+            el.innerText = text;
+            el.style.left = (x - 30 + Math.random()*60) + 'px';
+            el.style.top = (y - 30) + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 700);
+        }
+
+        function updateUI() {
+            document.getElementById('score-display').innerText = formatNum(Math.floor(gameState.score)) + ' 💩';
+            document.getElementById('header-ring-count').innerText = `${gameState.rings ? gameState.rings.length : 0}/6`;
+            
+            let divineMultiplier = Math.pow(1.5, gameState.divineReincarnations);
+            let reincMultiplier = (1 + (0.005 * gameState.goldenReincarnations)) * divineMultiplier;
+            let facilityBoostSum = 0;
+            gameState.levels.facility.forEach((lvl, idx) => {
+                facilityBoostSum += lvl * baseShop[6][idx].allBoost;
+            });
+            let facilityMultiplier = 1 + facilityBoostSum;
+
+            let totalPurchasedLevels = 0;
+            Object.keys(gameState.levels).forEach(k => {
+                gameState.levels[k].forEach(lv => totalPurchasedLevels += lv);
+            });
+            let pipingomanTotalBoost = 1;
+            gameState.levels.pipingoman.forEach((lvl, idx) => {
+                pipingomanTotalBoost += lvl * baseShop[5][idx].allTotalAdd;
+            });
+            pipingomanTotalBoost += totalPurchasedLevels * 0.00001;
+
+            let ringBoost = 1.0;
+            if (gameState.rings && gameState.rings.includes('ring_gorilla')) ringBoost += 0.5;
+            if (gameState.rings && gameState.rings.includes('ring_pipingoman')) ringBoost *= 2.0;
+
+            let autoPoopSum = 0;
+            gameState.levels.gorilla.forEach((lvl, idx) => { autoPoopSum += lvl * baseShop[0][idx].cps; });
+
+            let totalSynergy = 1.0;
+            gameState.levels.dog.forEach((lvl, idx) => { totalSynergy += lvl * baseShop[3][idx].synAdd; });
+
+            let totalGps = autoPoopSum * totalSynergy * facilityMultiplier * pipingomanTotalBoost * ringBoost * reincMultiplier;
+            if (gameState.feverActive) {
+                let feverBonus = 7;
+                gameState.levels.pipingoman.forEach((lvl, idx) => {
+                    feverBonus += lvl * baseShop[5][idx].feverMultAdd;
+                });
+                totalGps *= feverBonus;
+            }
+
+            let gpsText = formatNum(totalGps.toFixed(1)) + ' /秒 (x' + formatNum(reincMultiplier) + ')';
+            if (gameState.feverActive) {
+                gpsText = `🔥 フィーバー中 残り ${Math.ceil(gameState.feverTimer/1000)}秒 🔥`;
+            }
+            document.getElementById('gps-display').innerText = gpsText;
+            document.getElementById('cumulative-display').innerText = '累計: ' + formatNum(Math.floor(gameState.cumulative)) + ' 💩';
+
+            let totalBonus = (gameState.goldenReincarnations * 0.5).toFixed(1);
+            document.getElementById('golden-owned-display').innerText = `✨所持: ${formatNum(gameState.goldenReincarnations)}個 (+${totalBonus}%)`;
+
+            let currentRunGained = calculateGoldenGains();
+            let nextGoal = getNextGoalCumulative(currentRunGained);
+            let diff = nextGoal - gameState.cumulative;
+            if (diff < 0) diff = 0;
+            document.getElementById('next-goal-text').innerText = `次(+${currentRunGained + 1}個)まであと: ${formatNum(Math.ceil(diff))} 💩`;
+
+            const pBtn = document.getElementById('prestige-btn');
+            if (currentRunGained > 0) {
+                pBtn.disabled = false;
+                pBtn.innerText = `黄金転生 (+${formatNum(currentRunGained)}個)`;
+            } else {
+                pBtn.disabled = true;
+                pBtn.innerText = '黄金転生 (条件未達)';
+            }
+
+            document.getElementById('divine-owned-display').innerText = `🌌神格: ${formatNum(gameState.divineReincarnations)}個 (全生産 x${formatNum(divineMultiplier)})`;
+            let nextCost = getNextDivineCost(gameState.divineReincarnations);
+            let goldenDiff = nextCost - gameState.goldenReincarnations;
+            if (goldenDiff < 0) goldenDiff = 0;
+
+            const dBtn = document.getElementById('divine-btn');
+            if (gameState.goldenReincarnations >= nextCost) {
+                dBtn.disabled = false;
+                dBtn.innerText = `神格購入 (コスト:${formatNum(nextCost)}個)`;
+                document.getElementById('divine-goal-text').innerText = `次(+1個)まで条件達成！購入可能`;
+            } else {
+                dBtn.disabled = true;
+                dBtn.innerText = `神格購入 (要:${formatNum(nextCost)}個)`;
+                document.getElementById('divine-goal-text').innerText = `次(+1個)まであと黄金 ${formatNum(goldenDiff)}個`;
+            }
+        }
+
+        function formatNum(num) {
+            if (typeof num === 'string') num = parseFloat(num);
+            if (isNaN(num) || !isFinite(num)) return "∞ (測定不能)";
+            if (num > 1.79e308) return "MAX (オーバーフロー)";
+
+            if (num >= 1e68) return num.toExponential(2);
+            if (num >= 1e64) return (num / 1e64).toFixed(2) + '不可思議';
+            if (num >= 1e60) return (num / 1e60).toFixed(2) + '那由多';
+            if (num >= 1e56) return (num / 1e56).toFixed(2) + '阿僧祇';
+            if (num >= 1e52) return (num / 1e52).toFixed(2) + '恒河沙';
+            if (num >= 1e48) return (num / 1e48).toFixed(2) + '極';
+            if (num >= 1e44) return (num / 1e44).toFixed(2) + '載';
+            if (num >= 1e40) return (num / 1e40).toFixed(2) + '正';
+            if (num >= 1e36) return (num / 1e36).toFixed(2) + '澗';
+            if (num >= 1e32) return (num / 1e32).toFixed(2) + '溝';
+            if (num >= 1e28) return (num / 1e28).toFixed(2) + '穣';
+            if (num >= 1e24) return (num / 1e24).toFixed(2) + '🪷';
+            if (num >= 1e20) return (num / 1e20).toFixed(2) + '🪸';
+            if (num >= 1e16) return (num / 1e16).toFixed(2) + '京';
+            if (num >= 1e12) return (num / 1e12).toFixed(2) + '兆';
+            if (num >= 1e8) return (num / 1e8).toFixed(2) + '億';
+            if (num >= 1e4) return (num / 1e4).toFixed(1) + '万';
+            return num.toLocaleString();
+        }
+
+        function renderTabs() {
+            let tabNames = ['からばいよ', 'ニハシ', 'ロドリゴ', 'ザシアン', '🧚プルプルマン', '🐳ピピンゴマン', '設備'];
+            for(let i=0; i<7; i++) {
+                const btn = document.getElementById(`tab-${i}`);
+                if (!btn) continue;
+                let isLocked = false;
+                let text = tabNames[i];
+                if (i === 4 && gameState.divineReincarnations < 1) {
+                    isLocked = true;
+                    text = "🔒 プルプルマン(神格1)";
+                } else if (i === 5 && gameState.divineReincarnations < 3) {
+                    isLocked = true;
+                    text = "🔒 ピピンゴマン(神格3)";
+                }
+                btn.innerText = text;
+
+                if(i === gameState.currentTab) {
+                    btn.className = "flex-shrink-0 px-3 py-2 text-center rounded-xl bg-amber-600 text-white font-bold transition-all shadow";
+                } else {
+                    btn.className = `flex-shrink-0 px-3 py-2 text-center rounded-xl transition-all ${isLocked ? 'text-stone-600 bg-stone-950/40' : 'text-stone-400'}`;
+                }
+            }
+        }
+
+        function switchTab(idx) {
+            if (idx === 4 && gameState.divineReincarnations < 1) {
+                showModal("🔒 キャラクターロック中", "プルプルマンは <span class='text-purple-400 font-bold'>神格転生 1回以上</span> で解放されます！");
+                return;
+            }
+            if (idx === 5 && gameState.divineReincarnations < 3) {
+                showModal("🔒 キャラクターロック中", "ピピンゴマンは <span class='text-purple-400 font-bold'>神格転生 3回以上</span> で解放されます！");
+                return;
+            }
+            gameState.currentTab = idx;
+            renderTabs();
+            renderShop();
+        }
+
+        function renderShop() {
+            const container = document.getElementById('shop-container');
+            container.innerHTML = '';
+            let cat = gameState.currentTab;
+            let items = baseShop[cat];
+            let catKey = ['gorilla', 'toucan', 'skunk', 'dog', 'pulrupuru', 'pipingoman', 'facility'][cat];
+            let maxUnlockedIndex = getMaxUnlockedStage(gameState.divineReincarnations);
+
+            items.forEach((item, idx) => {
+                let currentLevel = gameState.levels[catKey][idx];
+                let currentCost = getItemCost(item, currentLevel);
+                let isLockedStage = idx >= maxUnlockedIndex;
+                let reqDivine = getRequiredDivineForStage(idx);
+                
+                let div = document.createElement('div');
+                div.className = `p-2.5 rounded-2xl border flex items-center justify-between shadow-sm ${isLockedStage ? 'bg-stone-950/80 border-stone-800/60 opacity-60' : 'bg-stone-900 border-stone-800'}`;
+                div.innerHTML = `
+                    <div class="pr-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold text-xs ${isLockedStage ? 'text-stone-500' : 'text-amber-200'}">${item.name}</span>
+                            <span id="shop-lv-${cat}-${idx}" class="text-[10px] bg-amber-950 text-amber-400 px-1.5 py-0.5 rounded-md font-bold">Lv.${currentLevel}</span>
+                        </div>
+                        <p class="text-[10px] ${isLockedStage ? 'text-stone-600' : 'text-stone-400'} mt-0.5">${item.desc}</p>
+                        <p id="shop-cost-${cat}-${idx}" class="text-[10px] font-black ${isLockedStage ? 'text-purple-400' : 'text-amber-500'} mt-0.5">${isLockedStage ? '🔒 要: 神格転生 ' + reqDivine + '回' : '費用: ' + formatNum(currentCost) + ' 💩'}</p>
+                    </div>
+                `;
+                let btn = document.createElement('button');
+                btn.id = `shop-btn-${cat}-${idx}`;
+                btn.className = "bg-amber-600 text-white text-xs font-bold px-3 py-2 rounded-xl shadow hover:bg-amber-700 active:scale-95 transition-all flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed";
+                btn.innerText = isLockedStage ? "ロック" : "購入";
+                if (isLockedStage) btn.disabled = true;
+                
+                let shopHoldTimer = null;
+                let shopIntervalTimer = null;
+
+                const clearShopHold = () => {
+                    if (shopHoldTimer) { clearTimeout(shopHoldTimer); shopHoldTimer = null; }
+                    if (shopIntervalTimer) { clearInterval(shopIntervalTimer); shopIntervalTimer = null; }
+                };
+
+                if (!isLockedStage) {
+                    btn.addEventListener('pointerdown', (e) => {
+                        e.stopPropagation();
+                        buyItem(cat, idx);
+
+                        shopHoldTimer = setTimeout(() => {
+                            if (shopIntervalTimer) clearInterval(shopIntervalTimer);
+                            shopIntervalTimer = setInterval(() => {
+                                buyItem(cat, idx);
+                            }, 100);
+                        }, 400);
+                    });
+
+                    btn.addEventListener('pointerup', clearShopHold);
+                    btn.addEventListener('pointercancel', clearShopHold);
+                    btn.addEventListener('mouseleave', clearShopHold);
+                }
+
+                div.appendChild(btn);
+                container.appendChild(div);
+            });
+        }
+
+        function buyItem(cat, idx) {
+            let maxUnlockedIndex = getMaxUnlockedStage(gameState.divineReincarnations);
+            if (idx >= maxUnlockedIndex) return;
+
+            let catKey = ['gorilla', 'toucan', 'skunk', 'dog', 'pulrupuru', 'pipingoman', 'facility'][cat];
+            let item = baseShop[cat][idx];
+            let currentLevel = gameState.levels[catKey][idx];
+            let currentCost = getItemCost(item, currentLevel);
+
+            if (gameState.score >= currentCost) {
+                gameState.score -= currentCost;
+                gameState.levels[catKey][idx]++;
+                
+                let newLevel = gameState.levels[catKey][idx];
+                let nextCost = getItemCost(item, newLevel);
+                let lvEl = document.getElementById(`shop-lv-${cat}-${idx}`);
+                let costEl = document.getElementById(`shop-cost-${cat}-${idx}`);
+                if (lvEl) lvEl.innerText = `Lv.${newLevel}`;
+                if (costEl) costEl.innerText = `費用: ${formatNum(nextCost)} 💩`;
+
+                updateBackgroundSprites();
+                updateUI();
+                saveGame();
+            }
+        }
+
+        function buyMaxCurrentTab() {
+            let cat = gameState.currentTab;
+            let catKey = ['gorilla', 'toucan', 'skunk', 'dog', 'pulrupuru', 'pipingoman', 'facility'][cat];
+            let items = baseShop[cat];
+            let maxUnlockedIndex = getMaxUnlockedStage(gameState.divineReincarnations);
+            let purchasedAny = false;
+            let safetyCounter = 0;
+
+            while (safetyCounter < 1000) {
+                let boughtInThisRound = false;
+                for (let idx = 0; idx < maxUnlockedIndex; idx++) {
+                    let item = items[idx];
+                    let currentLevel = gameState.levels[catKey][idx];
+                    let currentCost = getItemCost(item, currentLevel);
+
+                    if (gameState.score >= currentCost) {
+                        gameState.score -= currentCost;
+                        gameState.levels[catKey][idx]++;
+                        purchasedAny = true;
+                        boughtInThisRound = true;
+                    }
+                }
+                if (!boughtInThisRound) break;
+                safetyCounter++;
+            }
+
+            if (purchasedAny) {
+                renderShop();
+                updateBackgroundSprites();
+                updateUI();
+                saveGame();
+            }
+        }
+
+        function checkRings() {
+            let baseGoal = 1e32;
+            let earnedCount = gameState.rings ? gameState.rings.length : 0;
+            if (earnedCount >= 6) return;
+            let nextGoal = baseGoal * Math.pow(1e12, earnedCount);
+            if (gameState.cumulative >= nextGoal) {
+                let unowned = ringDefinitions.filter(r => !gameState.rings.includes(r.id));
+                if (unowned.length > 0) {
+                    let newRing = unowned[Math.floor(Math.random() * unowned.length)];
+                    if (!gameState.rings) gameState.rings = [];
+                    gameState.rings.push(newRing.id);
+                    showModal("💍 ウホホゴリリング獲得！", `累計うんちが条件に達し、新たな指輪を手に入れたウホ！<br><br><b class="text-yellow-300 text-sm">${newRing.icon} ${newRing.name}</b><br><span class="text-xs text-amber-200">${newRing.desc}</span>`);
+                    saveGame();
+                }
+            }
+        }
+
+        function openRingsModal() {
+            const container = document.getElementById('rings-list-container');
+            container.innerHTML = '';
+            ringDefinitions.forEach(r => {
+                let owned = gameState.rings && gameState.rings.includes(r.id);
+                let div = document.createElement('div');
+                div.className = `p-2.5 rounded-2xl border flex items-center space-x-3 ${owned ? 'bg-yellow-950/40 border-yellow-700/60 text-yellow-200' : 'bg-stone-950/60 border-stone-800 text-stone-600'}`;
+                div.innerHTML = `
+                    <div class="text-2xl">${owned ? r.icon : '🔒'}</div>
+                    <div>
+                        <p class="text-xs font-black ${owned ? 'text-yellow-300' : 'text-stone-500'}">${owned ? r.name : '未獲得のウホホゴリリング'}</p>
+                        <p class="text-[10px] ${owned ? 'text-amber-100' : 'text-stone-600'}">${owned ? r.desc : '条件到達でランダム解放されます'}</p>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            document.getElementById('rings-modal').classList.remove('hidden');
+        }
+
+        function closeRingsModal() {
+            document.getElementById('rings-modal').classList.add('hidden');
+        }
+
+        function openPrestigeModal() {
+            let netNew = calculateGoldenGains();
+            if (netNew <= 0) {
+                showModal("黄金転生", "まだ転生による獲得はありません。さらに累計うんちを稼ぐウホ！");
+                return;
+            }
+
+            document.getElementById('modal-title').innerText = "✨ 黄金転生発動 ✨";
+            document.getElementById('modal-text').innerHTML = `
+                現在の累計うんちで転生すると、<br>
+                新たに <span class="text-yellow-400 font-black text-sm">+${netNew}個</span> の黄金うんちを獲得できます！<br>
+                <span class="text-[10px] text-stone-400 mt-2 block">※スコア、設備、ショップレベル、今回周の累計うんちがリセットされます。</span>
+            `;
+            document.getElementById('modal-buttons').innerHTML = `
+                <button onclick="closeModal()" class="flex-1 bg-stone-700 text-stone-300 font-bold py-2 rounded-xl text-xs">キャンセル</button>
+                <button onclick="executePrestige(${netNew})" class="flex-1 bg-gradient-to-r from-amber-500 to-yellow-600 text-stone-950 font-black py-2 rounded-xl text-xs shadow">転生する</button>
+            `;
+            document.getElementById('msg-modal').classList.remove('hidden');
+        }
+
+        function executePrestige(gainedGolden) {
+            gameState.goldenReincarnations += gainedGolden;
+            gameState.score = 0;
+            gameState.cumulative = 0;
+            gameState.manualPower = 1 + (gameState.goldenReincarnations * 0.5);
+            gameState.autoPoopSec = 0;
+            gameState.critRate = 0.05;
+            gameState.critMulti = 3.0;
+            gameState.autoTapCount = 0;
+            gameState.synergyBonus = 1.0;
+            gameState.levels = {
+                gorilla: Array(60).fill(0),
+                toucan: Array(60).fill(0),
+                skunk: Array(60).fill(0),
+                dog: Array(60).fill(0),
+                pulrupuru: Array(60).fill(0),
+                pipingoman: Array(60).fill(0),
+                facility: Array(60).fill(0)
+            };
+            closeModal();
+            renderTabs();
+            renderShop();
+            updateBackgroundSprites();
+            updateUI();
+            saveGame();
+            showModal("転生完了", "黄金転生を果たしたウホ！新たな力でさらにモリモリ生産するウホ！");
+        }
+
+        function openDivineModal() {
+            let nextCost = getNextDivineCost(gameState.divineReincarnations);
+            if (gameState.goldenReincarnations < nextCost) {
+                showModal("🌌 神格購入", `黄金うんちが足りません（必要: ${formatNum(nextCost)}個）`);
+                return;
+            }
+
+            let nextUnlocked = getMaxUnlockedStage(gameState.divineReincarnations + 1);
+
+            document.getElementById('modal-title').innerText = "🌌 神格購入確認 🌌";
+            document.getElementById('modal-text').innerHTML = `
+                黄金うんちを <span class="text-amber-400 font-black">${formatNum(nextCost)}個</span> 消費して、<br>
+                神格を <span class="text-purple-400 font-black text-sm">+1個</span> 獲得（現在 ${gameState.divineReincarnations}個 → ${gameState.divineReincarnations + 1}個）します！<br>
+                <span class="text-[10px] text-stone-400 mt-2 block">※購入可能な段階の上限が ${nextUnlocked}段階目 まで拡張されます！</span>
+            `;
+            document.getElementById('modal-buttons').innerHTML = `
+                <button onclick="closeModal()" class="flex-1 bg-stone-700 text-stone-300 font-bold py-2 rounded-xl text-xs">キャンセル</button>
+                <button onclick="executeDivine(${nextCost})" class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black py-2 rounded-xl text-xs shadow">購入して神格転生</button>
+            `;
+            document.getElementById('msg-modal').classList.remove('hidden');
+        }
+
+        function executeDivine(cost) {
+            gameState.goldenReincarnations -= cost;
+            gameState.divineReincarnations += 1;
+            
+            gameState.score = 0;
+            gameState.cumulative = 0;
+            gameState.manualPower = 1 + (gameState.goldenReincarnations * 0.5);
+            gameState.autoPoopSec = 0;
+            gameState.critRate = 0.05;
+            gameState.critMulti = 3.0;
+            gameState.autoTapCount = 0;
+            gameState.synergyBonus = 1.0;
+            gameState.levels = {
+                gorilla: Array(60).fill(0),
+                toucan: Array(60).fill(0),
+                skunk: Array(60).fill(0),
+                dog: Array(60).fill(0),
+                pulrupuru: Array(60).fill(0),
+                pipingoman: Array(60).fill(0),
+                facility: Array(60).fill(0)
+            };
+            closeModal();
+            renderTabs();
+            renderShop();
+            updateBackgroundSprites();
+            updateUI();
+            saveGame();
+            showModal("神格降臨", "神格降臨を果たしたウホ！購入可能段階の上限が5つ解放されたウホ！");
+        }
+
+        function openResetModal() {
+            document.getElementById('modal-title').innerText = "⚠️ 全データリセット";
+            document.getElementById('modal-text').innerText = "本当に全てのセーブデータを消去して初期化しますか？この操作は取り消せません。";
+            document.getElementById('modal-buttons').innerHTML = `
+                <button onclick="closeModal()" class="flex-1 bg-stone-700 text-stone-300 font-bold py-2 rounded-xl text-xs">キャンセル</button>
+                <button onclick="resetGameData()" class="flex-1 bg-red-700 text-white font-black py-2 rounded-xl text-xs shadow">完全リセット</button>
+            `;
+            document.getElementById('msg-modal').classList.remove('hidden');
+        }
+
+        function resetGameData() {
+            localStorage.removeItem('maximum_poop_clicker_save_v14');
+            location.reload();
+        }
+
+        function showModal(title, text) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-text').innerHTML = text;
+            document.getElementById('modal-buttons').innerHTML = `<button onclick="closeModal()" class="flex-1 bg-amber-600 text-white font-bold py-2 rounded-xl shadow hover:bg-amber-700 transition-colors text-xs">了解</button>`;
+            document.getElementById('msg-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('msg-modal').classList.add('hidden');
+        }
+
+        function saveGame() {
+            localStorage.setItem('maximum_poop_clicker_save_v14', JSON.stringify(gameState));
+        }
+
+        function loadGame() {
+            const saved = localStorage.getItem('maximum_poop_clicker_save_v14');
+            if (saved) {
+                try {
+                    let parsed = JSON.parse(saved);
+                    gameState = Object.assign(gameState, parsed);
+                    Object.keys(gameState.levels).forEach(k => {
+                        if (gameState.levels[k].length < 60) {
+                            let pad = Array(60 - gameState.levels[k].length).fill(0);
+                            gameState.levels[k] = gameState.levels[k].concat(pad);
+                        }
+                    });
+                } catch(e) {
+                    console.error("Failed to load save", e);
+                }
+            }
+        }
+
+        function updateBackgroundSprites() {
+            const canvas = document.getElementById('bg-canvas');
+            canvas.innerHTML = '';
+
+            let baseIcons = ['💩', '🍌', '✨', '🌌', '💍'];
+            
+            let gorillaTotal = gameState.levels.gorilla.reduce((a, b) => a + b, 0);
+            let toucanTotal = gameState.levels.toucan.reduce((a, b) => a + b, 0);
+            let skunkTotal = gameState.levels.skunk.reduce((a, b) => a + b, 0);
+            let dogTotal = gameState.levels.dog.reduce((a, b) => a + b, 0);
+            let pulrupuruTotal = gameState.levels.pulrupuru.reduce((a, b) => a + b, 0);
+            let pipingomanTotal = gameState.levels.pipingoman.reduce((a, b) => a + b, 0);
+
+            let iconPool = [...baseIcons];
+            for(let i=0; i<Math.min(gorillaTotal, 10); i++) iconPool.push('🦍');
+            for(let i=0; i<Math.min(toucanTotal, 10); i++) iconPool.push('🦜');
+            for(let i=0; i<Math.min(skunkTotal, 10); i++) iconPool.push('🦨');
+            for(let i=0; i<Math.min(dogTotal, 10); i++) iconPool.push('🐕');
+            for(let i=0; i<Math.min(pulrupuruTotal, 10); i++) iconPool.push('🧚');
+            for(let i=0; i<Math.min(pipingomanTotal, 10); i++) iconPool.push('🐳');
+
+            let totalSprites = Math.min(15 + gorillaTotal + toucanTotal + skunkTotal + dogTotal + pulrupuruTotal + pipingomanTotal, 120);
+
+            for(let i=0; i<totalSprites; i++) {
+                let span = document.createElement('span');
+                span.className = 'bg-sprite';
+                span.innerText = iconPool[Math.floor(Math.random() * iconPool.length)];
+                span.style.top = (Math.random() * 100) + '%';
+                span.style.left = (Math.random() * 100) + '%';
+                
+                let scale = 0.8 + Math.random() * 0.8;
+                span.style.transform = `scale(${scale})`;
+                
+                canvas.appendChild(span);
+            }
+        }
+    </script>
+</body>
+</html>
